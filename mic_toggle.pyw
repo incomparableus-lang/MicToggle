@@ -57,6 +57,7 @@ DEVICE_CHECK = 2.0   # как часто проверять, не сменило
 PEAK_THRESHOLD = 0.015   # порог «в микрофон идёт звук» (шумовой пол около 0.002)
 LIVE_ATTACK = 2          # столько замеров подряд выше порога = «звук идёт»
 LIVE_HOLD = 0.6          # сколько держать «звук идёт» после последнего пика, с
+OVERLAY_FLASH = 5.0      # сколько секунд показывать оверлей после переключения
 
 
 # ---------------------------------------------------------------- лог
@@ -242,6 +243,7 @@ class App:
         self.cfg = hotkeys.load_config()
         self._capture_deadline = 0.0
         self._overlay_test_until = 0.0
+        self._overlay_flash_until = 0.0
         self.hooks = hotkeys.Hooks(lambda: self.cfg, self._on_hotkey,
                                    self._on_captured, logger=log)
         self.overlay = overlay.Overlay(self._overlay_request, logger=log)
@@ -315,6 +317,9 @@ class App:
         overlay_menu = pystray.Menu(
             pystray.MenuItem("Показывать", self._toggle_overlay,
                              checked=lambda item: self.cfg.overlay),
+            pystray.MenuItem("5 секунд после переключения", self._toggle_overlay_after_toggle,
+                             checked=lambda item: self.cfg.overlay_after_toggle,
+                             enabled=lambda item: self.cfg.overlay),
             pystray.MenuItem("Только когда микрофон выключен", self._toggle_overlay_muted,
                              checked=lambda item: self.cfg.overlay_only_muted,
                              enabled=lambda item: self.cfg.overlay),
@@ -453,6 +458,13 @@ class App:
         self.overlay.tick()
         log.info("оверлей: %s", "включён" if self.cfg.overlay else "выключен")
 
+    def _toggle_overlay_after_toggle(self, icon=None, item=None):
+        self.cfg.overlay_after_toggle = not self.cfg.overlay_after_toggle
+        self._save_config()
+        self._refresh_ui()
+        self.overlay.tick()
+        log.info("оверлей после переключения: %s", self.cfg.overlay_after_toggle)
+
     def _toggle_overlay_muted(self, icon=None, item=None):
         self.cfg.overlay_only_muted = not self.cfg.overlay_only_muted
         self._save_config()
@@ -486,11 +498,20 @@ class App:
         """Что и где показывать: (state, visible, corner, rect)."""
         state = self._state_name()
         corner = self.cfg.overlay_corner
+        now = time.monotonic()
 
-        if time.monotonic() < self._overlay_test_until:
-            return state, True, corner, overlay.primary_rect()
         if not self.cfg.overlay:
             return state, False, corner, None
+
+        # проверка вида из меню
+        if now < self._overlay_test_until:
+            return state, True, corner, overlay.primary_rect()
+
+        # вспышка после переключения микрофона — показываем везде
+        if now < self._overlay_flash_until:
+            rect = overlay.foreground_fullscreen() or overlay.primary_rect()
+            return state, True, corner, rect
+
         if self.cfg.overlay_only_muted and state != "off":
             return state, False, corner, None
 
@@ -611,6 +632,11 @@ class App:
             if state != last_state or self.state["muted"] != last_muted:
                 if state != last_state:
                     log.info("состояние: %s", state)
+                # переключили микрофон — показываем значок на 5 секунд
+                if (self.state["muted"] != last_muted and last_muted is not None
+                        and self.cfg.overlay and self.cfg.overlay_after_toggle):
+                    self._overlay_flash_until = time.monotonic() + OVERLAY_FLASH
+                    log.info("оверлей: вспышка %.0f с", OVERLAY_FLASH)
                 last_state = state
                 last_muted = self.state["muted"]
                 self._apply_state(state)

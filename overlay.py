@@ -19,9 +19,8 @@ import ctypes
 import threading
 import time
 from ctypes import wintypes
-from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter
 
 import icons
 
@@ -156,13 +155,6 @@ gdi32.DeleteDC.argtypes = (wintypes.HDC,)
 
 # ---------------------------------------------------------------- внешний вид
 
-LABELS = {
-    "off": "МИКРОФОН ВЫКЛ",
-    "on": "МИКРОФОН ВКЛ",
-    "live": "СЛЫШЕН ЗВУК",
-    "error": "НЕТ МИКРОФОНА",
-}
-
 CORNERS = ("top-right", "bottom-right", "top-left", "bottom-left")
 
 CORNER_LABELS = {
@@ -173,50 +165,23 @@ CORNER_LABELS = {
 }
 
 MARGIN = 24
-HEIGHT = 58
-ICON = 42
-SS = 2  # рисуем в 2 раза крупнее и уменьшаем — сглаживание
-
-
-def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    for name in ("segoeuib.ttf", "arialbd.ttf", "tahomabd.ttf"):
-        path = Path("C:/Windows/Fonts") / name
-        if path.exists():
-            try:
-                return ImageFont.truetype(str(path), size)
-            except OSError:
-                continue
-    return ImageFont.load_default()
+BADGE = 88      # размер значка на экране
+SHADOW = 10     # поле под тень
 
 
 def render(state: str) -> Image.Image:
-    """Пилюля «иконка + подпись» нужного состояния."""
-    color = icons.COLORS.get(state, icons.COLORS["error"])
-    label = LABELS.get(state, LABELS["error"])
+    """Только значок состояния, без текста: кружок с микрофоном и тень."""
+    size = BADGE
+    img = Image.new("RGBA", (size + SHADOW * 2, size + SHADOW * 2), (0, 0, 0, 0))
 
-    font = _font(19 * SS)
-    tmp = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-    text_w = int(tmp.textlength(label, font=font))
-    width = 10 * SS + ICON * SS + 9 * SS + text_w + 14 * SS
-    height = HEIGHT * SS
+    # мягкая тень, чтобы значок читался и на светлом фоне
+    shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(shadow)
+    d.ellipse((SHADOW, SHADOW + 2, SHADOW + size, SHADOW + size + 2), fill=(0, 0, 0, 120))
+    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(5)))
 
-    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-
-    # тёмная подложка с цветной рамкой
-    radius = height // 2
-    d.rounded_rectangle((1, 1, width - 2, height - 2), radius=radius,
-                        fill=(10, 12, 16, 200), outline=color + (255,), width=2 * SS)
-
-    # иконка микрофона
-    badge = icons.draw(state, ICON * SS)
-    img.alpha_composite(badge, (10 * SS, (height - ICON * SS) // 2))
-
-    # подпись
-    d.text((10 * SS + ICON * SS + 9 * SS, height // 2), label, font=font,
-           fill=(255, 255, 255, 255), anchor="lm")
-
-    return img.resize((max(1, width // SS), max(1, height // SS)), Image.LANCZOS)
+    img.alpha_composite(icons.draw(state, size), (SHADOW, SHADOW))
+    return img
 
 
 # ---------------------------------------------------------------- окно

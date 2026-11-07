@@ -145,6 +145,7 @@ class Config:
     overlay_corner: str = "top-right"
     overlay_only_muted: bool = False
     overlay_only_fullscreen: bool = True
+    overlay_after_toggle: bool = True   # вспышка на 5 секунд после переключения
 
     CORNERS = ("top-right", "bottom-right", "top-left", "bottom-left")
 
@@ -165,7 +166,8 @@ class Config:
                 "mouse": self.mouse, "swallow": self.swallow,
                 "overlay": self.overlay, "overlay_corner": self.overlay_corner,
                 "overlay_only_muted": self.overlay_only_muted,
-                "overlay_only_fullscreen": self.overlay_only_fullscreen}
+                "overlay_only_fullscreen": self.overlay_only_fullscreen,
+                "overlay_after_toggle": self.overlay_after_toggle}
 
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
@@ -181,6 +183,7 @@ class Config:
             overlay_corner=corner if corner in cls.CORNERS else "top-right",
             overlay_only_muted=bool(data.get("overlay_only_muted", False)),
             overlay_only_fullscreen=bool(data.get("overlay_only_fullscreen", True)),
+            overlay_after_toggle=bool(data.get("overlay_after_toggle", True)),
         )
 
 
