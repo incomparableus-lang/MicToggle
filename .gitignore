@@ -1,0 +1,14 @@
+# окружения и артефакты сборки
+.venv/
+.venv-build/
+__pycache__/
+*.py[cod]
+build/
+dist/
+!build/version_info.txt
+
+# локальные файлы
+*.log
+config.json
+.pytest_cache/
+MicToggle.lnk

@@ -1,0 +1,4 @@
+pystray==0.19.5
+pillow==13.0.0
+pycaw==20260927
+comtypes==1.4.17
