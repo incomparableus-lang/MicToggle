@@ -133,12 +133,20 @@ MOD_LABELS = {"ctrl": "Ctrl", "alt": "Alt", "shift": "Shift", "win": "Win"}
 
 @dataclass
 class Config:
-    """Настройки горячих клавиш."""
+    """Настройки горячих клавиш и оверлея."""
 
     key_vk: int | None = 0x22          # PgDn
     key_mods: list[str] = field(default_factory=list)
     mouse: str | None = None
     swallow: bool = True               # не отдавать клавишу приложениям
+
+    # оверлей состояния поверх игр
+    overlay: bool = False
+    overlay_corner: str = "top-right"
+    overlay_only_muted: bool = False
+    overlay_only_fullscreen: bool = True
+
+    CORNERS = ("top-right", "bottom-right", "top-left", "bottom-left")
 
     @property
     def key_name(self) -> str:
@@ -154,17 +162,25 @@ class Config:
 
     def to_dict(self) -> dict:
         return {"key_vk": self.key_vk, "key_mods": list(self.key_mods),
-                "mouse": self.mouse, "swallow": self.swallow}
+                "mouse": self.mouse, "swallow": self.swallow,
+                "overlay": self.overlay, "overlay_corner": self.overlay_corner,
+                "overlay_only_muted": self.overlay_only_muted,
+                "overlay_only_fullscreen": self.overlay_only_fullscreen}
 
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
         vk = data.get("key_vk", 0x22)
         mouse = data.get("mouse")
+        corner = data.get("overlay_corner", "top-right")
         return cls(
             key_vk=int(vk) if vk is not None else None,
             key_mods=[m for m in data.get("key_mods", []) if m in MOD_ORDER],
             mouse=mouse if mouse in MOUSE_NAMES else None,
             swallow=bool(data.get("swallow", True)),
+            overlay=bool(data.get("overlay", False)),
+            overlay_corner=corner if corner in cls.CORNERS else "top-right",
+            overlay_only_muted=bool(data.get("overlay_only_muted", False)),
+            overlay_only_fullscreen=bool(data.get("overlay_only_fullscreen", True)),
         )
 
 

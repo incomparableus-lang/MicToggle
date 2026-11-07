@@ -35,6 +35,7 @@ from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume, IAudioMeterInforma
 
 import icons
 import hotkeys
+import overlay
 
 APP_NAME = "MicToggle"
 MUTEX_NAME = "Local\\MicToggleTray"
@@ -240,8 +241,10 @@ class App:
         self._stopping = threading.Event()
         self.cfg = hotkeys.load_config()
         self._capture_deadline = 0.0
+        self._overlay_test_until = 0.0
         self.hooks = hotkeys.Hooks(lambda: self.cfg, self._on_hotkey,
                                    self._on_captured, logger=log)
+        self.overlay = overlay.Overlay(self._overlay_request, logger=log)
         self.icon = pystray.Icon(
             APP_NAME,
             icon=icons.tray_image("error"),
@@ -303,6 +306,27 @@ class App:
             pystray.MenuItem("Отключить", self._disable_mouse,
                              enabled=lambda item: self.cfg.mouse is not None),
         )
+        corner_menu = pystray.Menu(*[
+            pystray.MenuItem(
+                overlay.CORNER_LABELS[c], self._corner_setter(c), radio=True,
+                checked=lambda item, c=c: self.cfg.overlay_corner == c)
+            for c in overlay.CORNERS
+        ])
+        overlay_menu = pystray.Menu(
+            pystray.MenuItem("Показывать", self._toggle_overlay,
+                             checked=lambda item: self.cfg.overlay),
+            pystray.MenuItem("Только когда микрофон выключен", self._toggle_overlay_muted,
+                             checked=lambda item: self.cfg.overlay_only_muted,
+                             enabled=lambda item: self.cfg.overlay),
+            pystray.MenuItem("Только в полноэкранных приложениях",
+                             self._toggle_overlay_fullscreen,
+                             checked=lambda item: self.cfg.overlay_only_fullscreen,
+                             enabled=lambda item: self.cfg.overlay),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Положение", corner_menu,
+                             enabled=lambda item: self.cfg.overlay),
+            pystray.MenuItem("Показать на 5 секунд", self._overlay_test),
+        )
         return pystray.Menu(
             pystray.MenuItem(lambda item: self._toggle_text(), self._request_toggle,
                              default=True),
@@ -316,6 +340,8 @@ class App:
                              checked=lambda item: self.cfg.swallow,
                              enabled=lambda item: self.cfg.key_vk is not None),
             pystray.MenuItem(lambda item: self._mouse_item_text(), mouse_menu),
+            pystray.MenuItem(lambda item: "Оверлей в играх: "
+                             + ("вкл" if self.cfg.overlay else "выкл"), overlay_menu),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Запускать при входе в Windows", self._toggle_autostart,
                              checked=lambda item: autostart_enabled()),
@@ -418,6 +444,62 @@ class App:
         self._refresh_ui()
         log.info("перехват клавиши: %s", self.cfg.swallow)
 
+    # ---- оверлей
+
+    def _toggle_overlay(self, icon=None, item=None):
+        self.cfg.overlay = not self.cfg.overlay
+        self._save_config()
+        self._refresh_ui()
+        self.overlay.tick()
+        log.info("оверлей: %s", "включён" if self.cfg.overlay else "выключен")
+
+    def _toggle_overlay_muted(self, icon=None, item=None):
+        self.cfg.overlay_only_muted = not self.cfg.overlay_only_muted
+        self._save_config()
+        self._refresh_ui()
+        self.overlay.tick()
+        log.info("оверлей только при выключенном микрофоне: %s", self.cfg.overlay_only_muted)
+
+    def _toggle_overlay_fullscreen(self, icon=None, item=None):
+        self.cfg.overlay_only_fullscreen = not self.cfg.overlay_only_fullscreen
+        self._save_config()
+        self._refresh_ui()
+        self.overlay.tick()
+        log.info("оверлей только в полноэкранных приложениях: %s",
+                 self.cfg.overlay_only_fullscreen)
+
+    def _corner_setter(self, corner: str):
+        def set_corner(icon=None, item=None):
+            self.cfg.overlay_corner = corner
+            self._save_config()
+            self._refresh_ui()
+            self.overlay.tick()
+            log.info("положение оверлея: %s", overlay.CORNER_LABELS[corner])
+        return set_corner
+
+    def _overlay_test(self, icon=None, item=None):
+        self._overlay_test_until = time.monotonic() + 5
+        self.overlay.tick()
+        log.info("оверлей: показ на 5 секунд")
+
+    def _overlay_request(self):
+        """Что и где показывать: (state, visible, corner, rect)."""
+        state = self._state_name()
+        corner = self.cfg.overlay_corner
+
+        if time.monotonic() < self._overlay_test_until:
+            return state, True, corner, overlay.primary_rect()
+        if not self.cfg.overlay:
+            return state, False, corner, None
+        if self.cfg.overlay_only_muted and state != "off":
+            return state, False, corner, None
+
+        if self.cfg.overlay_only_fullscreen:
+            rect = overlay.foreground_fullscreen()
+        else:
+            rect = overlay.primary_rect()
+        return state, rect is not None, corner, rect
+
     def _check_capture_timeout(self, now: float) -> None:
         if self._capture_deadline and now > self._capture_deadline \
                 and self.hooks.capture_kind:
@@ -441,6 +523,10 @@ class App:
             self.hooks.stop()
         except Exception:
             log.debug("хуки не остановились", exc_info=True)
+        try:
+            self.overlay.stop()
+        except Exception:
+            log.debug("оверлей не остановился", exc_info=True)
         self.icon.stop()
 
     # ---- отрисовка состояния
@@ -493,6 +579,7 @@ class App:
 
                 now = time.monotonic()
                 self._check_capture_timeout(now)
+                self.overlay.tick()
 
                 if now >= next_device_check:
                     next_device_check = now + DEVICE_CHECK
@@ -546,6 +633,7 @@ class App:
         if not hotkeys.config_exists():
             self._save_config()
         self.hooks.start()
+        self.overlay.start()
         threading.Thread(target=self._monitor, name="mic-monitor", daemon=True).start()
 
     def run(self) -> None:
