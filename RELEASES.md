@@ -45,10 +45,6 @@ fc7ae8d11987675ddc9d7f2f301688a7bd9b4b7348dd9aaa07aebf83ea1d691c  MicToggle-Setu
 
 Оверлей состояния микрофона поверх игр.
 
-| Микрофон включён | Микрофон выключен |
-|---|---|
-| ![Оверлей: зелёный значок, микрофон включён](https://raw.githubusercontent.com/incomparableus-lang/MicToggle/main/docs/overlay-on.png) | ![Оверлей: красный перечёркнутый микрофон](https://raw.githubusercontent.com/incomparableus-lang/MicToggle/main/docs/overlay-off.png) |
-
 ### Новое
 
 * **Оверлей в играх** — пилюля в углу экрана с цветом и подписью состояния:
