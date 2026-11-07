@@ -25,6 +25,8 @@ root = tk.Tk()
 root.overrideredirect(True)
 root.geometry("1920x1080+0+0")
 root.configure(bg="black")
+if "--topmost" in sys.argv:
+    root.attributes("-topmost", True)
 tk.Label(root, text="ПОЛНОЭКРАННАЯ ИГРА (заглушка)", fg="#333333", bg="black",
          font=("Segoe UI", 20)).pack(expand=True)
 root.update()

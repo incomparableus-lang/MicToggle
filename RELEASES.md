@@ -2,6 +2,10 @@
 
 Оверлей стал компактным и научился всплывать после переключения.
 
+| Микрофон включён | Микрофон выключен |
+|---|---|
+| ![Оверлей: зелёный значок, микрофон включён](https://raw.githubusercontent.com/incomparableus-lang/MicToggle/main/docs/overlay-on.png) | ![Оверлей: красный перечёркнутый микрофон](https://raw.githubusercontent.com/incomparableus-lang/MicToggle/main/docs/overlay-off.png) |
+
 ### Новое
 
 * **В оверлее остался только значок** — цветной кружок с микрофоном и мягкой
@@ -40,6 +44,10 @@ fc7ae8d11987675ddc9d7f2f301688a7bd9b4b7348dd9aaa07aebf83ea1d691c  MicToggle-Setu
 ## MicToggle 1.1.0
 
 Оверлей состояния микрофона поверх игр.
+
+| Микрофон включён | Микрофон выключен |
+|---|---|
+| ![Оверлей: зелёный значок, микрофон включён](https://raw.githubusercontent.com/incomparableus-lang/MicToggle/main/docs/overlay-on.png) | ![Оверлей: красный перечёркнутый микрофон](https://raw.githubusercontent.com/incomparableus-lang/MicToggle/main/docs/overlay-off.png) |
 
 ### Новое
 
