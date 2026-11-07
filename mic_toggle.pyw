@@ -317,16 +317,19 @@ class App:
         overlay_menu = pystray.Menu(
             pystray.MenuItem("Показывать", self._toggle_overlay,
                              checked=lambda item: self.cfg.overlay),
-            pystray.MenuItem("5 секунд после переключения", self._toggle_overlay_after_toggle,
+            pystray.MenuItem("Показывать 5 секунд после переключения",
+                             self._toggle_overlay_after_toggle,
                              checked=lambda item: self.cfg.overlay_after_toggle,
                              enabled=lambda item: self.cfg.overlay),
             pystray.MenuItem("Только когда микрофон выключен", self._toggle_overlay_muted,
                              checked=lambda item: self.cfg.overlay_only_muted,
-                             enabled=lambda item: self.cfg.overlay),
+                             enabled=lambda item: self.cfg.overlay
+                             and not self.cfg.overlay_after_toggle),
             pystray.MenuItem("Только в полноэкранных приложениях",
                              self._toggle_overlay_fullscreen,
                              checked=lambda item: self.cfg.overlay_only_fullscreen,
-                             enabled=lambda item: self.cfg.overlay),
+                             enabled=lambda item: self.cfg.overlay
+                             and not self.cfg.overlay_after_toggle),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Положение", corner_menu,
                              enabled=lambda item: self.cfg.overlay),
@@ -495,7 +498,12 @@ class App:
         log.info("оверлей: показ на 5 секунд")
 
     def _overlay_request(self):
-        """Что и где показывать: (state, visible, corner, rect)."""
+        """Что и где показывать: (state, visible, corner, rect).
+
+        Если включена опция «5 секунд после переключения», она задаёт показ
+        во всех режимах: значок всплывает только после смены mute и через
+        5 секунд исчезает. Постоянное отображение в этом случае выключено.
+        """
         state = self._state_name()
         corner = self.cfg.overlay_corner
         now = time.monotonic()
@@ -503,14 +511,15 @@ class App:
         if not self.cfg.overlay:
             return state, False, corner, None
 
-        # проверка вида из меню
+        # проверка вида из меню — работает всегда
         if now < self._overlay_test_until:
             return state, True, corner, overlay.primary_rect()
 
-        # вспышка после переключения микрофона — показываем везде
-        if now < self._overlay_flash_until:
-            rect = overlay.foreground_fullscreen() or overlay.primary_rect()
-            return state, True, corner, rect
+        if self.cfg.overlay_after_toggle:
+            if now < self._overlay_flash_until:
+                rect = overlay.foreground_fullscreen() or overlay.primary_rect()
+                return state, True, corner, rect
+            return state, False, corner, None
 
         if self.cfg.overlay_only_muted and state != "off":
             return state, False, corner, None
